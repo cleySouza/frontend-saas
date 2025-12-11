@@ -1,165 +1,142 @@
-# beSyS — Documentação dos Frontends (Admin & Cliente)
+# beSyS — Documentação de Arquitetura
 
-## 1. Introdução
+## 1. Visão Geral
 
-O beSyS possui **dois frontends**:
-
-1. **App 1 — Admin/PDV (React Web)**
-2. **App 2 — Portal do Cliente (React Web ou React Native)**
-
-Este documento detalha a arquitetura, pastas, tecnologias e integrações.
+O beSyS é um sistema completo para gestão de operações comerciais, composto por backend, frontends e módulos compartilhados, organizados em um **monorepo Turborepo**. A arquitetura foi projetada para ser escalável, modular e fácil de manter.
 
 ---
 
-## 2. Tecnologias Principais
+## 2. Arquitetura de Alto Nível
 
-### App 1 — Admin / PDV
+```
+                 ┌────────────────────┐
+                 │   Portal Cliente   │
+                 │      (App 2)       │
+                 └─────────┬──────────┘
+                           |
+                           v
+┌──────────────┐     ┌──────────────┐
+│ Admin / PDV  │ --> │    Backend    │ --> PostgreSQL
+│   (App 1)    │     │   (NestJS)    │
+└──────┬───────┘     └──────────────┘
+       |                 ▲
+       └─────────────────┘
+```
 
-* **React + Vite**
-* **TypeScript**
-* **Tailwind CSS**
-* **React Query** para chamadas à API
-* **Zustand** para estado
-* **ShadCN (opcional)**
-
-### App 2 — Cliente
-
-* **React (Web)** ou **React Native**
-* **TypeScript**
-* **Tailwind (ou Nativewind no mobile)**
-* **React Query**
+* **App 1 (Admin/PDV)** consome rotas autenticadas e envia eventos internos.
+* **App 2 (Cliente)** envia pedidos, agendamentos e recebe confirmações.
+* **Backend** centraliza regras de negócio e persistência.
+* **PostgreSQL** é o banco principal.
 
 ---
 
-## 3. Estrutura de Pastas
+## 3. Monorepo com Turborepo
 
-### Admin (Web)
-
-```
-apps/admin/
-├─ public/
-├─ src/
-│  ├─ pages/
-│  ├─ components/
-│  ├─ hooks/
-│  ├─ services/
-│  │   └─ api.ts
-│  ├─ store/
-│  ├─ contexts/
-│  ├─ layouts/
-│  ├─ utils/
-│  └─ main.tsx
-└─ package.json
-```
-
-### Client (Web ou Mobile)
+Estrutura:
 
 ```
-apps/client/
-├─ src/
-│  ├─ screens/
-│  ├─ components/
-│  ├─ routes/
-│  ├─ hooks/
-│  ├─ services/
-│  │   └─ api.ts
-│  ├─ store/
-│  ├─ utils/
-│  └─ main.tsx (web) ou App.tsx (mobile)
-└─ package.json
+besys/
+├─ apps/
+│  ├─ admin/
+│  ├─ client/
+│  └─ backend/
+├─ packages/
+│  ├─ ui/
+│  ├─ api-types/
+│  ├─ config/
+│  ├─ tsconfig/
+│  └─ eslint/
+└─ turbo.json
+```
+
+### Benefícios:
+
+* Reutilização de código (UI, tipagens, regras comuns)
+* Builds mais rápidos com caching
+* Padronização de lint, tsconfig e libs
+
+---
+
+## 4. Comunicação
+
+### 4.1 REST API
+
+* Todas as chamadas seguem `/api/v1/...`.
+* Backend expõe controllers modulares.
+
+### 4.2 WebSockets (futuro)
+
+* Eventos de pedidos, caixa e agenda enviados em tempo real.
+
+---
+
+## 5. Segurança da Arquitetura
+
+* JWT + refresh tokens
+* RBAC por roles e guards
+* Sanitização de entrada
+* Rate limit + CORS
+
+---
+
+## 6. Banco de Dados
+
+Modelo com entidades principais:
+
+```
+User -- Company -- Product -- Order -- OrderItem
+                      |          └─ CashRegister
+              Appointment
+```
+
+* **Prisma** como ORM
+* Migrations versionadas
+
+---
+
+## 7. Fluxos Principais
+
+### 7.1 Venda no PDV
+
+```
+Operador -> Seleciona itens -> Envia venda -> API registra -> Caixa atualiza
+```
+
+### 7.2 Pedido do Cliente
+
+```
+Cliente -> Pedido -> API -> Notificação PDV -> Confirmação
+```
+
+### 7.3 Agendamento
+
+```
+Cliente -> Serviço -> Data/hora -> API valida -> PDV aprova
 ```
 
 ---
 
-## 4. Fluxos do Cliente
+## 8. Deploy
 
-### 4.1 Cardápio
+### Backend
 
-```
-[Cliente] -> Lista de produtos -> Detalhe -> Adicionar ao carrinho
-```
+* Docker + Postgres
+* CI/CD GitHub Actions
 
-### 4.2 Carrinho
+### Frontend
 
-```
-Carrinho -> Revisão -> Enviar pedido -> Aguardar confirmação
-```
+* Admin: Vercel ou Netlify
+* Cliente: Vercel (web) ou Play Store/TestFlight (mobile)
 
-### 4.3 Agendamento
+### Banco
 
-```
-Seleciona serviço -> Escolhe data -> Horários disponíveis -> Enviar agendamento
-```
+* Railway, Render, Supabase ou RDS
 
 ---
 
-## 5. Integração com Backend
+## 9. Roadmap de Arquitetura
 
-Todas as chamadas seguem padrão:
-
-```
-/api/v1/*
-```
-
-Helpers de consumo:
-
-```ts
-import axios from "axios";
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-});
-```
-
-Uso:
-
-```ts
-const { data } = await api.get("/products");
-```
-
----
-
-## 6. Autenticação
-
-* Login via **JWT**
-* Armazenamento seguro: `localStorage` (web) / SecureStore (mobile)
-* Interceptor adiciona `Authorization: Bearer token`
-
----
-
-## 7. UI/UX do Admin
-
-Principais telas:
-
-* Login
-* Dashboard
-* PDV (vendas)
-* Caixa
-* Agenda interna
-* Produtos/serviços
-* Configurações da empresa
-
----
-
-## 8. UI/UX do Cliente
-
-* Home
-* Cardápio
-* Carrinho
-* Minha conta
-* Histórico de pedidos
-* Agendamentos
-
----
-
-## 9. Roadmap Frontend
-
-### Admin
-
-* [ ] Tema customizável
-* [ ] Impressão/PDV
-* [ ] Modo offline
-
-### Cliente
-
-* [ ] Push notifications
-* [ ] Wallet / histórico avançado
+* [ ] Adicionar mensageria (Kafka/NATS) em escala
+* [ ] Multi-tenancy completo (esquema por empresa)
+* [ ] CDN para assets
+* [ ] Cache Redis
