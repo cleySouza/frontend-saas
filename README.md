@@ -1,142 +1,171 @@
-# beSyS — Documentação de Arquitetura
+# 🎨 beSyS — **Documentação dos Frontends (Admin & Cliente)**
 
-## 1. Visão Geral
+## 🌟 1. Introdução
 
-O beSyS é um sistema completo para gestão de operações comerciais, composto por backend, frontends e módulos compartilhados, organizados em um **monorepo Turborepo**. A arquitetura foi projetada para ser escalável, modular e fácil de manter.
+O **beSyS** possui **dois frontends principais**, cada um projetado para um público e fluxo diferente:
 
----
+1. 🖥️ **App 1 — Admin/PDV (React Web)**
+2. 📱 **App 2 — Portal do Cliente (React Web ou React Native)**
 
-## 2. Arquitetura de Alto Nível
-
-```
-                 ┌────────────────────┐
-                 │   Portal Cliente   │
-                 │      (App 2)       │
-                 └─────────┬──────────┘
-                           |
-                           v
-┌──────────────┐     ┌──────────────┐
-│ Admin / PDV  │ --> │    Backend    │ --> PostgreSQL
-│   (App 1)    │     │   (NestJS)    │
-└──────┬───────┘     └──────────────┘
-       |                 ▲
-       └─────────────────┘
-```
-
-* **App 1 (Admin/PDV)** consome rotas autenticadas e envia eventos internos.
-* **App 2 (Cliente)** envia pedidos, agendamentos e recebe confirmações.
-* **Backend** centraliza regras de negócio e persistência.
-* **PostgreSQL** é o banco principal.
+Este documento descreve arquitetura, tecnologias, estrutura de pastas, UX e integrações.
 
 ---
 
-## 3. Monorepo com Turborepo
+## 🛠️ 2. Tecnologias Principais
 
-Estrutura:
+### 🖥️ App 1 — Admin / PDV
 
-```
-besys/
-├─ apps/
-│  ├─ admin/
-│  ├─ client/
-│  └─ backend/
-├─ packages/
-│  ├─ ui/
-│  ├─ api-types/
-│  ├─ config/
-│  ├─ tsconfig/
-│  └─ eslint/
-└─ turbo.json
-```
+* ⚛️ **React + Vite**
+* 🧩 **TypeScript**
+* 🎨 **Tailwind CSS**
+* 🔄 **React Query** (fetch + cache)
+* 🧠 **Zustand** para estado global
+* 🧱 **ShadCN UI** (opcional, para componentes modernos)
 
-### Benefícios:
+### 📱 App 2 — Cliente
 
-* Reutilização de código (UI, tipagens, regras comuns)
-* Builds mais rápidos com caching
-* Padronização de lint, tsconfig e libs
+* 🌐 **React (Web)** *ou* 📱 **React Native**
+* 🧩 **TypeScript**
+* 🎨 **Tailwind / Nativewind**
+* 🔄 **React Query**
 
 ---
 
-## 4. Comunicação
+## 🗂️ 3. Estrutura de Pastas
 
-### 4.1 REST API
-
-* Todas as chamadas seguem `/api/v1/...`.
-* Backend expõe controllers modulares.
-
-### 4.2 WebSockets (futuro)
-
-* Eventos de pedidos, caixa e agenda enviados em tempo real.
-
----
-
-## 5. Segurança da Arquitetura
-
-* JWT + refresh tokens
-* RBAC por roles e guards
-* Sanitização de entrada
-* Rate limit + CORS
-
----
-
-## 6. Banco de Dados
-
-Modelo com entidades principais:
+### 🖥️ Admin (Web)
 
 ```
-User -- Company -- Product -- Order -- OrderItem
-                      |          └─ CashRegister
-              Appointment
+apps/admin/
+├─ public/
+├─ src/
+│  ├─ pages/        # Páginas principais
+│  ├─ components/   # Componentes reutilizáveis
+│  ├─ hooks/        # Hooks customizados
+│  ├─ services/
+│  │   └─ api.ts    # Instância da API
+│  ├─ store/        # Zustand
+│  ├─ contexts/
+│  ├─ layouts/
+│  ├─ utils/
+│  └─ main.tsx
+└─ package.json
 ```
 
-* **Prisma** como ORM
-* Migrations versionadas
-
----
-
-## 7. Fluxos Principais
-
-### 7.1 Venda no PDV
+### 📱 Client (Web ou Mobile)
 
 ```
-Operador -> Seleciona itens -> Envia venda -> API registra -> Caixa atualiza
-```
-
-### 7.2 Pedido do Cliente
-
-```
-Cliente -> Pedido -> API -> Notificação PDV -> Confirmação
-```
-
-### 7.3 Agendamento
-
-```
-Cliente -> Serviço -> Data/hora -> API valida -> PDV aprova
+apps/client/
+├─ src/
+│  ├─ screens/      # Telas principais
+│  ├─ components/   # Botões, cards, inputs...
+│  ├─ routes/       # Stack/Router
+│  ├─ hooks/
+│  ├─ services/
+│  │   └─ api.ts
+│  ├─ store/
+│  ├─ utils/
+│  └─ main.tsx (web) ou App.tsx (mobile)
+└─ package.json
 ```
 
 ---
 
-## 8. Deploy
+## 🛒 4. Fluxos do Cliente
 
-### Backend
+### 4.1 🍽️ Cardápio
 
-* Docker + Postgres
-* CI/CD GitHub Actions
+```
+Cliente → Lista de produtos → Detalhes → Adicionar ao carrinho
+```
 
-### Frontend
+### 4.2 🛍️ Carrinho
 
-* Admin: Vercel ou Netlify
-* Cliente: Vercel (web) ou Play Store/TestFlight (mobile)
+```
+Carrinho → Revisão → Enviar pedido → Aguardar confirmação do PDV
+```
 
-### Banco
+### 4.3 📅 Agendamento
 
-* Railway, Render, Supabase ou RDS
+```
+Seleciona serviço → Escolhe a data → Horários disponíveis
+               → Enviar agendamento → Aguardar aprovação
+```
 
 ---
 
-## 9. Roadmap de Arquitetura
+## 🔗 5. Integração com Backend
 
-* [ ] Adicionar mensageria (Kafka/NATS) em escala
-* [ ] Multi-tenancy completo (esquema por empresa)
-* [ ] CDN para assets
-* [ ] Cache Redis
+Todas as chamadas seguem o padrão:
+
+```
+/api/v1/*
+```
+
+### 📡 Instância da API
+
+```ts
+import axios from "axios";
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+```
+
+### 📥 Exemplo de uso
+
+```ts
+const { data } = await api.get("/products");
+```
+
+---
+
+## 🔐 6. Autenticação
+
+* 🔑 **JWT**
+* 🔒 Armazenamento seguro: `localStorage` (web) / SecureStore (mobile)
+* 🔄 Interceptors configurados com `Authorization: Bearer <token>`
+
+---
+
+## 🖥️ 7. UI/UX do Admin
+
+Principais telas:
+
+* 🔐 Login
+* 📊 Dashboard
+* 💳 PDV (vendas)
+* 💰 Caixa
+* 📅 Agenda interna
+* 🛒 Produtos / Serviços
+* ⚙️ Configurações da empresa
+
+---
+
+## 📱 8. UI/UX do Cliente
+
+* 🏠 Home
+* 🍽️ Cardápio
+* 🛍️ Carrinho
+* 👤 Minha conta
+* 📦 Histórico de pedidos
+* 📅 Agendamentos
+
+---
+
+## 🧭 9. Roadmap Frontend
+
+### 🖥️ Admin
+
+* [ ] 🎨 Tema customizável (cores, fontes, logos)
+* [ ] 🖨️ Integração com impressora térmica
+* [ ] ⚡ Modo offline para vendas
+
+### 📱 Cliente
+
+* [ ] 🔔 Push notifications
+* [ ] 💳 Wallet + histórico avançado
+* [ ] ✨ Modo dark opcional
+
+---
+
+Se quiser adicionar **diagramas**, **fluxos ilustrados**, **componentização padrão** ou **guides de UX**, posso gerar também!
